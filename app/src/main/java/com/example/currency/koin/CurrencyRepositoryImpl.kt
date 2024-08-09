@@ -10,8 +10,8 @@ class CurrencyRepositoryImpl(
         return currencyApi.getCurrencies()
     }
 
-    override suspend fun getLatestRates(from: String, to: String): HttpResponse {
-        return currencyApi.getLatestRates(from, to)
+    override suspend fun getLatestRates(from: String): HttpResponse {
+        return currencyApi.getLatestRates(from)
     }
 
 }

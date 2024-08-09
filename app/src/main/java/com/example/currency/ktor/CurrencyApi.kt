@@ -13,9 +13,9 @@ class CurrencyApi {
                 contentType(ContentType.Application.Json)
             }
 
-    suspend fun getLatestRates(from: String, to: String): HttpResponse =
+    suspend fun getLatestRates(from: String): HttpResponse =
             KtorClient.httpClient.get {
-                url("https://api.frankfurter.app/latest?from=$from&to=$to")
+                url("https://api.frankfurter.app/latest?from=$from")
                 contentType(ContentType.Application.Json)
             }
 }
