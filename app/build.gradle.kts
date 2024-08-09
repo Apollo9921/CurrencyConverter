@@ -73,4 +73,22 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     // Serialization
     implementation(libs.kotlinx.serialization.json)
+    // Ktor Client
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.serialization)
+    implementation(libs.ktor.client.logging)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.logback.classic)
+    // Koin
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    // Lifecycle components
+    implementation(libs.androidx.lifecycle.extensions)
+    implementation(libs.androidx.lifecycle.common.java8)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android)
 }
