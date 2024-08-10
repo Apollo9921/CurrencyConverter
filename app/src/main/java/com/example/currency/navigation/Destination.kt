@@ -7,5 +7,9 @@ sealed class Destination {
     @Serializable
     data object E1: Destination()
     @Serializable
-    data object E2: Destination()
+    data class E2(
+        val from: String,
+        val to: String,
+        val amount: String
+    ): Destination()
 }

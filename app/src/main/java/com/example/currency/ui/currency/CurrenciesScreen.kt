@@ -1,4 +1,4 @@
-package com.example.currency.ui
+package com.example.currency.ui.currency
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
@@ -46,9 +46,11 @@ import com.example.currency.core.mediaQueryHeight
 import com.example.currency.core.mediaQueryWidth
 import com.example.currency.core.normal
 import com.example.currency.core.small
+import com.example.currency.core.status
 import com.example.currency.main.keepSplashOpened
 import com.example.currency.model.rates.RateList
 import com.example.currency.model.rates.Rates
+import com.example.currency.navigation.Destination
 import com.example.currency.network.ConnectivityObserver
 import com.example.currency.network.NetworkConnectivityObserver
 import kotlinx.serialization.encodeToString
@@ -59,7 +61,6 @@ import org.koin.androidx.compose.koinViewModel
 import java.text.DecimalFormat
 
 private lateinit var connectivityObserver: ConnectivityObserver
-private lateinit var status: ConnectivityObserver.Status
 private var applicationContext: Context? = null
 private lateinit var viewModel: CurrenciesScreenViewModel
 private var rate = mutableStateOf<Rates?>(null)
@@ -93,7 +94,7 @@ fun CurrenciesScreen(navController: NavHostController) {
                     bottom = innerPadding.calculateBottomPadding()
                 )
         ) {
-            GetCurrencyRates()
+            GetCurrencyRates(navController)
         }
     }
 
@@ -101,7 +102,7 @@ fun CurrenciesScreen(navController: NavHostController) {
 }
 
 @Composable
-private fun GetCurrencyRates() {
+private fun GetCurrencyRates(navController: NavHostController) {
     when {
         viewModel.isLoading.value -> {
             Box(
@@ -111,7 +112,7 @@ private fun GetCurrencyRates() {
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(
-                    color = Black
+                    color = White
                 )
             }
         }
@@ -152,7 +153,7 @@ private fun GetCurrencyRates() {
                 }
                 allCurrencyRates.sortBy { it.base }
             }
-            RatesList()
+            RatesList(navController)
         }
     }
 }
@@ -227,7 +228,7 @@ private fun ChangeCurrency() {
 }
 
 @Composable
-private fun RatesList() {
+private fun RatesList(navController: NavHostController) {
     if (openDialog.value) {
         ChangeCurrency()
     }
@@ -256,7 +257,13 @@ private fun RatesList() {
                         shape = RoundedCornerShape(13.dp)
                     )
                     .padding(20.dp)
-                    .clickable { },
+                    .clickable {
+                        navController.navigate(Destination.E2(
+                            from = rateValue.value.value?.base ?: "EUR",
+                            to = allCurrencyRates[index].base,
+                            amount = rateValue.value.value?.amount.toString()
+                        ))
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Column(

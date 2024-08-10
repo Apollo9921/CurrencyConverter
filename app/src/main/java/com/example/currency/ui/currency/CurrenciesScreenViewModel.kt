@@ -1,4 +1,4 @@
-package com.example.currency.ui
+package com.example.currency.ui.currency
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
