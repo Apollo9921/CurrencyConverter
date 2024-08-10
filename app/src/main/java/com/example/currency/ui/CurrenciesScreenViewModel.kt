@@ -37,8 +37,20 @@ class CurrenciesScreenViewModel(
                     isError.value = true
                     _getCurrencyRates.value = CurrencyRatesState.Error("No internet connection")
                     return@launch
+                } else {
+                    _getCurrencyRates.value = CurrencyRatesState.Loading
+                    makeRequest(from)
                 }
-                _getCurrencyRates.value = CurrencyRatesState.Loading
+            } catch (e: Exception) {
+                _getCurrencyRates.value = CurrencyRatesState.Error(e.message ?: "Unknown error")
+            }
+        }
+        getAllCurrenciesResponse()
+    }
+
+    private fun makeRequest(from: String) {
+        viewModelScope.launch {
+            try {
                 val response = currencyRepository.getLatestRates(from)
                 if (response.status.value in 200..299) {
                     _getCurrencyRates.value = CurrencyRatesState.Success(response.body())
@@ -48,7 +60,6 @@ class CurrenciesScreenViewModel(
             } catch (e: Exception) {
                 _getCurrencyRates.value = CurrencyRatesState.Error(e.message ?: "Unknown error")
             }
-            getAllCurrenciesResponse()
         }
     }
 

@@ -28,10 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color.Companion.White
@@ -69,16 +66,19 @@ private var rate = mutableStateOf<Rates?>(null)
 private var rateValue = derivedStateOf { rate }
 private var allCurrencyRates: ArrayList<RateList> = arrayListOf()
 private var openDialog = mutableStateOf(false)
+private var selectedOption = mutableStateOf("")
 
 @Composable
 fun CurrenciesScreen(navController: NavHostController) {
     applicationContext = LocalContext.current.applicationContext
     connectivityObserver = NetworkConnectivityObserver(applicationContext ?: return)
     status = connectivityObserver.observe().collectAsState(
-        initial = ConnectivityObserver.Status.Unknown
+        initial = ConnectivityObserver.Status.Unavailable
     ).value
     viewModel = koinViewModel<CurrenciesScreenViewModel>()
-    viewModel.getAllCurrencies(status)
+
+    if (allCurrencyRates.isEmpty())
+        viewModel.getAllCurrencies(status, selectedOption.value.ifEmpty { "EUR" })
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -125,7 +125,7 @@ private fun GetCurrencyRates() {
             ) {
                 Text(
                     text = viewModel.messageError.value,
-                    color = Black,
+                    color = White,
                     fontSize =
                     if (mediaQueryWidth() <= small) {
                         20.sp
@@ -188,7 +188,6 @@ private fun CurrenciesScreenTopBar() {
 
 @Composable
 private fun ChangeCurrency() {
-    var selectedOption by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { openDialog.value = false },
         title = { Text("Choose an option") },
@@ -197,8 +196,8 @@ private fun ChangeCurrency() {
                 items(allCurrencyRates.size) { index ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
-                            selected = selectedOption == allCurrencyRates[index].base,
-                            onClick = { selectedOption = allCurrencyRates[index].base }
+                            selected = selectedOption.value == allCurrencyRates[index].base,
+                            onClick = { selectedOption.value = allCurrencyRates[index].base }
                         )
                         Text(allCurrencyRates[index].base)
                     }
@@ -211,7 +210,7 @@ private fun ChangeCurrency() {
                 viewModel.isLoading.value = true
                 viewModel.isSuccess.value = false
                 allCurrencyRates.clear()
-                viewModel.getAllCurrencies(status, selectedOption)
+                viewModel.getAllCurrencies(status, selectedOption.value)
             }) {
                 Text("OK")
             }
