@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Currency</string>
+    <string name="select_option">Please select an option</string>
+    <string name="no_internet">No internet connection</string>
+    <string name="ok">OK</string>"
+    <string name="cancel">Cancel</string>
+    <string name="change_currency">Change Currency</string>
+    <string name="search_by_currency">Search by currency</string>
 </resources>
