@@ -1,6 +1,7 @@
 package com.example.currency.ui.currency
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,7 +29,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color.Companion.White
@@ -48,15 +52,11 @@ import com.example.currency.core.normal
 import com.example.currency.core.small
 import com.example.currency.core.status
 import com.example.currency.main.keepSplashOpened
-import com.example.currency.model.rates.RateList
+import com.example.currency.model.currencyList.Currency
 import com.example.currency.model.rates.Rates
 import com.example.currency.navigation.Destination
 import com.example.currency.network.ConnectivityObserver
 import com.example.currency.network.NetworkConnectivityObserver
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
 import org.koin.androidx.compose.koinViewModel
 import java.text.DecimalFormat
 
@@ -65,9 +65,9 @@ private var applicationContext: Context? = null
 private lateinit var viewModel: CurrenciesScreenViewModel
 private var rate = mutableStateOf<Rates?>(null)
 private var rateValue = derivedStateOf { rate }
-private var allCurrencyRates: ArrayList<RateList> = arrayListOf()
+private var allCurrencyRates: Currency? = null
 private var openDialog = mutableStateOf(false)
-private var selectedOption = mutableStateOf("")
+private var isConnected by mutableStateOf(false)
 
 @Composable
 fun CurrenciesScreen(navController: NavHostController) {
@@ -77,9 +77,10 @@ fun CurrenciesScreen(navController: NavHostController) {
         initial = ConnectivityObserver.Status.Unavailable
     ).value
     viewModel = koinViewModel<CurrenciesScreenViewModel>()
-
-    if (allCurrencyRates.isEmpty())
-        viewModel.getAllCurrencies(status, selectedOption.value.ifEmpty { "EUR" })
+    if (status == ConnectivityObserver.Status.Available && !isConnected) {
+        viewModel.getAllCurrencies(status)
+        isConnected = true
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -142,17 +143,7 @@ private fun GetCurrencyRates(navController: NavHostController) {
 
         viewModel.isSuccess.value -> {
             rate.value = viewModel.rates.value
-            if (allCurrencyRates.isEmpty()) {
-                val jsonString = Json.encodeToString(rate.value?.rates)
-                val jsonElement = Json.parseToJsonElement(jsonString)
-                val map = jsonElement.jsonObject.toMap()
-                val hashMap = HashMap(map)
-                hashMap.forEach { (key, value) ->
-                    val rateValue = (value as? JsonPrimitive)?.content?.toDoubleOrNull() ?: 0.0
-                    allCurrencyRates.add(RateList(key, rateValue))
-                }
-                allCurrencyRates.sortBy { it.base }
-            }
+            allCurrencyRates = viewModel.currencies.value
             RatesList(navController)
         }
     }
@@ -189,29 +180,39 @@ private fun CurrenciesScreenTopBar() {
 
 @Composable
 private fun ChangeCurrency() {
+    val context = LocalContext.current
+    var selectedOption by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { openDialog.value = false },
         title = { Text("Choose an option") },
         text = {
             LazyColumn {
-                items(allCurrencyRates.size) { index ->
+                items(allCurrencyRates?.currencies?.size ?: 0) { index ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
-                            selected = selectedOption.value == allCurrencyRates[index].base,
-                            onClick = { selectedOption.value = allCurrencyRates[index].base }
+                            selected = selectedOption == allCurrencyRates?.currencies?.keys?.elementAt(index),
+                            onClick = { selectedOption = allCurrencyRates?.currencies?.keys?.elementAt(index) ?: "" }
                         )
-                        Text(allCurrencyRates[index].base)
+                        Text(allCurrencyRates?.currencies?.keys?.elementAt(index) ?: "")
                     }
                 }
             }
         },
         confirmButton = {
             Button(onClick = {
+                if (selectedOption.isEmpty()) {
+                    Toast.makeText(context, "Please select an option", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (status == ConnectivityObserver.Status.Unavailable) {
+                    Toast.makeText(context, "No internet connection", Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
                 openDialog.value = false
                 viewModel.isLoading.value = true
                 viewModel.isSuccess.value = false
-                allCurrencyRates.clear()
-                viewModel.getAllCurrencies(status, selectedOption.value)
+                allCurrencyRates?.currencies?.remove(selectedOption)
+                viewModel.getAllCurrencies(status, selectedOption)
             }) {
                 Text("OK")
             }
@@ -232,7 +233,6 @@ private fun RatesList(navController: NavHostController) {
     if (openDialog.value) {
         ChangeCurrency()
     }
-
     val state = rememberLazyStaggeredGridState()
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2),
@@ -244,7 +244,7 @@ private fun RatesList(navController: NavHostController) {
             .background(BackgroundColor)
             .padding(25.dp)
     ) {
-        items(allCurrencyRates.size) { index ->
+        items(allCurrencyRates?.currencies?.size ?: 0) { index ->
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -260,7 +260,7 @@ private fun RatesList(navController: NavHostController) {
                     .clickable {
                         navController.navigate(Destination.E2(
                             from = rateValue.value.value?.base ?: "EUR",
-                            to = allCurrencyRates[index].base,
+                            to = allCurrencyRates?.currencies?.keys?.elementAt(index) ?: "",
                             amount = rateValue.value.value?.amount.toString()
                         ))
                     },
@@ -271,7 +271,7 @@ private fun RatesList(navController: NavHostController) {
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = allCurrencyRates[index].base,
+                        text = allCurrencyRates?.currencies?.keys?.elementAt(index) ?: "",
                         color = TextColor,
                         fontSize =
                         if (mediaQueryWidth() <= small) {
@@ -285,7 +285,7 @@ private fun RatesList(navController: NavHostController) {
                         fontWeight = FontWeight.W500
                     )
                     Spacer(modifier = Modifier.padding(10.dp))
-                    val rate = allCurrencyRates[index].rate
+                    val rate = allCurrencyRates?.currencies?.values?.elementAt(index).toString().toDouble()
                     val rateValue = DecimalFormat("#.##").format(rate)
                     Text(
                         text = rateValue,
