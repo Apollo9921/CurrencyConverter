@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.currency.R
 import com.example.currency.core.BackgroundColor
+import com.example.currency.core.Black
 import com.example.currency.core.TopBarColor
 import com.example.currency.core.mediaQueryWidth
 import com.example.currency.core.normal
@@ -51,6 +55,7 @@ import com.example.currency.core.status
 import com.example.currency.model.currencyList.Currency
 import com.example.currency.network.ConnectivityObserver
 import com.example.currency.network.NetworkConnectivityObserver
+import com.example.currency.ui.history.ShowHistory
 import org.koin.androidx.compose.koinViewModel
 import java.text.DecimalFormat
 
@@ -62,6 +67,7 @@ private lateinit var viewModel: CurrencyConverterViewModel
 private var currencies: Currency? = null
 private var currencyToBeConvert = mutableStateOf("")
 private var currencyConverted = mutableStateOf("")
+private var showHistory = mutableStateOf(false)
 
 @Composable
 fun CurrencyConverterScreen(
@@ -88,6 +94,9 @@ fun CurrencyConverterScreen(
                     bottom = innerPadding.calculateBottomPadding()
                 )
         ) {
+            if (showHistory.value) {
+                ShowModalBottomSheet()
+            }
             GetCurrency(from, to)
         }
     }
@@ -107,6 +116,38 @@ private fun InitializeValues(amount: String) {
         isConnected = true
     }
     amountToConvert.value = amount
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShowModalBottomSheet() {
+    ModalBottomSheet(
+        onDismissRequest = { showHistory.value = false },
+        containerColor = White,
+        modifier = Modifier.fillMaxHeight(0.5f)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.padding(10.dp))
+            Text(
+                text = "Conversion History",
+                color = Black,
+                fontSize =
+                if (mediaQueryWidth() <= small) {
+                    20.sp
+                } else if (mediaQueryWidth() <= normal) {
+                    25.sp
+                } else {
+                    30.sp
+                },
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.padding(10.dp))
+            ShowHistory()
+        }
+    }
 }
 
 @Composable
@@ -158,9 +199,11 @@ private fun GetCurrency(from: String, to: String) {
                     currencyToBeConvert.value = currencies?.currencies?.get(from) ?: ""
                 }
             } else {
-                amountConverted.value = viewModel.conversion.value?.rates?.conversion?.values.toString()
+                amountConverted.value =
+                    viewModel.conversion.value?.rates?.conversion?.values.toString()
                 amountConverted.value = amountConverted.value.replace("[", "").replace("]", "")
-                amountConverted.value = DecimalFormat("#.##").format(amountConverted.value.toDouble())
+                amountConverted.value =
+                    DecimalFormat("#.##").format(amountConverted.value.toDouble())
             }
             ConverterScreen(from, to)
         }
@@ -175,7 +218,7 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
             .background(TopBarColor)
             .padding(top = 60.dp, start = 20.dp, end = 20.dp, bottom = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Image(
             painter = painterResource(id = R.drawable.arrow_back),
@@ -194,6 +237,24 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
                 .clickable {
                     clearValues()
                     navController.navigateUp()
+                }
+        )
+        Image(
+            painter = painterResource(id = R.drawable.history),
+            contentDescription = "Arrow back",
+            colorFilter = ColorFilter.tint(White),
+            modifier = Modifier
+                .size(
+                    if (mediaQueryWidth() <= small) {
+                        40.dp
+                    } else if (mediaQueryWidth() <= normal) {
+                        50.dp
+                    } else {
+                        60.dp
+                    }
+                )
+                .clickable {
+                    showHistory.value = true
                 }
         )
     }
