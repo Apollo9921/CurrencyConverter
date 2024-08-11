@@ -1,10 +1,12 @@
 package com.example.currency.ui.conversion
 
 import android.content.Context
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.ui.graphics.Color.Companion.White
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -234,7 +237,10 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
                         60.dp
                     }
                 )
-                .clickable {
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
                     clearValues()
                     navController.navigateUp()
                 }
@@ -253,7 +259,10 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
                         60.dp
                     }
                 )
-                .clickable {
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
                     showHistory.value = true
                 }
         )
@@ -262,6 +271,7 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
 
 @Composable
 private fun ConverterScreen(from: String, to: String) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceAround,
@@ -351,6 +361,7 @@ private fun ConverterScreen(from: String, to: String) {
                 ),
             contentAlignment = Alignment.Center
         ) {
+            val noInternet = stringResource(id = R.string.no_internet)
             Image(
                 painter = painterResource(id = R.drawable.arrow_down),
                 contentDescription = "Arrow forward",
@@ -365,7 +376,14 @@ private fun ConverterScreen(from: String, to: String) {
                             275.dp
                         }
                     )
-                    .clickable {
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (status == ConnectivityObserver.Status.Unavailable) {
+                            Toast.makeText(context, noInternet, Toast.LENGTH_SHORT).show()
+                            return@clickable
+                        }
                         viewModel.conversion.value = null
                         viewModel.makeConversion(
                             status,
