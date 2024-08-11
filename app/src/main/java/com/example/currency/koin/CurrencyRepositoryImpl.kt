@@ -14,4 +14,8 @@ class CurrencyRepositoryImpl(
         return currencyApi.getLatestRates(from)
     }
 
+    override suspend fun makeConversion(from: String, to: String, amount: String): HttpResponse {
+        return currencyApi.makeConversion(from, to, amount)
+    }
+
 }

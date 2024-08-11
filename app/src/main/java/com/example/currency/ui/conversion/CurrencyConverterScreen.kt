@@ -1,6 +1,7 @@
 package com.example.currency.ui.conversion
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,6 +52,7 @@ import com.example.currency.model.currencyList.Currency
 import com.example.currency.network.ConnectivityObserver
 import com.example.currency.network.NetworkConnectivityObserver
 import org.koin.androidx.compose.koinViewModel
+import java.text.DecimalFormat
 
 private lateinit var connectivityObserver: ConnectivityObserver
 private var applicationContext: Context? = null
@@ -68,18 +70,12 @@ fun CurrencyConverterScreen(
     amount: String,
     navController: NavHostController
 ) {
-    var isConnected by remember { mutableStateOf(false) }
-    applicationContext = LocalContext.current.applicationContext
-    connectivityObserver = NetworkConnectivityObserver(applicationContext ?: return)
-    status = connectivityObserver.observe().collectAsState(
-        initial = status
-    ).value
-    viewModel = koinViewModel<CurrencyConverterViewModel>()
-    if (status == ConnectivityObserver.Status.Available && !isConnected) {
-        viewModel.getCurrencies(status)
-        isConnected = true
+    InitializeValues(amount)
+    BackHandler {
+        clearValues()
+        navController.navigateUp()
     }
-    amountToConvert.value = amount
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = { CurrenciesScreenConverterTopBar(navController) }
@@ -95,6 +91,22 @@ fun CurrencyConverterScreen(
             GetCurrency(from, to)
         }
     }
+}
+
+@Composable
+private fun InitializeValues(amount: String) {
+    var isConnected by remember { mutableStateOf(false) }
+    applicationContext = LocalContext.current.applicationContext
+    connectivityObserver = NetworkConnectivityObserver(applicationContext ?: return)
+    status = connectivityObserver.observe().collectAsState(
+        initial = status
+    ).value
+    viewModel = koinViewModel<CurrencyConverterViewModel>()
+    if (status == ConnectivityObserver.Status.Available && !isConnected) {
+        viewModel.getCurrencies(status)
+        isConnected = true
+    }
+    amountToConvert.value = amount
 }
 
 @Composable
@@ -137,12 +149,18 @@ private fun GetCurrency(from: String, to: String) {
         }
 
         viewModel.isSuccess.value -> {
-            currencies = viewModel.currencies.value
-            if (currencies?.currencies?.containsKey(to) == true) {
-                currencyConverted.value = currencies?.currencies?.get(to) ?: ""
-            }
-            if (currencies?.currencies?.containsKey(from) == true) {
-                currencyToBeConvert.value = currencies?.currencies?.get(from) ?: ""
+            if (viewModel.conversion.value == null) {
+                currencies = viewModel.currencies.value
+                if (currencies?.currencies?.containsKey(to) == true) {
+                    currencyConverted.value = currencies?.currencies?.get(to) ?: ""
+                }
+                if (currencies?.currencies?.containsKey(from) == true) {
+                    currencyToBeConvert.value = currencies?.currencies?.get(from) ?: ""
+                }
+            } else {
+                amountConverted.value = viewModel.conversion.value?.rates?.conversion?.values.toString()
+                amountConverted.value = amountConverted.value.replace("[", "").replace("]", "")
+                amountConverted.value = DecimalFormat("#.##").format(amountConverted.value.toDouble())
             }
             ConverterScreen(from, to)
         }
@@ -174,7 +192,8 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
                     }
                 )
                 .clickable {
-                    navController.popBackStack()
+                    clearValues()
+                    navController.navigateUp()
                 }
         )
     }
@@ -285,7 +304,15 @@ private fun ConverterScreen(from: String, to: String) {
                             275.dp
                         }
                     )
-                    .clickable { }
+                    .clickable {
+                        viewModel.conversion.value = null
+                        viewModel.makeConversion(
+                            status,
+                            from,
+                            to,
+                            amountToConvert.value
+                        )
+                    }
             )
         }
         Box(
@@ -361,4 +388,12 @@ private fun typeAmount(newValue: String) {
             }
         }
     }
+}
+
+private fun clearValues() {
+    amountToConvert.value = ""
+    amountConverted.value = ""
+    currencyToBeConvert.value = ""
+    currencyConverted.value = ""
+    viewModel.conversion.value = null
 }

@@ -18,4 +18,11 @@ class CurrencyApi {
                 url("https://api.frankfurter.app/latest?from=$from")
                 contentType(ContentType.Application.Json)
             }
+
+    suspend fun makeConversion(from: String, to: String, amount: String): HttpResponse =
+            KtorClient.httpClient.get {
+                url("https://api.frankfurter.app/latest?from=$from&to=$to&amount=$amount")
+                contentType(ContentType.Application.Json)
+            }
+
 }
