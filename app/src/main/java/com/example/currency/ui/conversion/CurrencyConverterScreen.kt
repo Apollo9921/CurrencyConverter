@@ -15,12 +15,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -51,6 +56,7 @@ import com.example.currency.R
 import com.example.currency.core.BackgroundColor
 import com.example.currency.core.Black
 import com.example.currency.core.TopBarColor
+import com.example.currency.core.mediaQueryHeight
 import com.example.currency.core.mediaQueryWidth
 import com.example.currency.core.normal
 import com.example.currency.core.small
@@ -71,6 +77,10 @@ private var currencies: Currency? = null
 private var currencyToBeConvert = mutableStateOf("")
 private var currencyConverted = mutableStateOf("")
 private var showHistory = mutableStateOf(false)
+private var openDialogFrom = mutableStateOf(false)
+private var openDialogTo = mutableStateOf(false)
+private var fromCurrency = mutableStateOf("")
+private var toCurrency = mutableStateOf("")
 
 @Composable
 fun CurrencyConverterScreen(
@@ -79,6 +89,8 @@ fun CurrencyConverterScreen(
     amount: String,
     navController: NavHostController
 ) {
+    fromCurrency.value = from
+    toCurrency.value = to
     InitializeValues(amount)
     BackHandler {
         clearValues()
@@ -100,7 +112,7 @@ fun CurrencyConverterScreen(
             if (showHistory.value) {
                 ShowModalBottomSheet()
             }
-            GetCurrency(from, to)
+            GetCurrency()
         }
     }
 }
@@ -155,7 +167,7 @@ private fun ShowModalBottomSheet() {
 }
 
 @Composable
-private fun GetCurrency(from: String, to: String) {
+private fun GetCurrency() {
     when {
         viewModel.isLoading.value -> {
             Box(
@@ -196,21 +208,28 @@ private fun GetCurrency(from: String, to: String) {
         viewModel.isSuccess.value -> {
             if (viewModel.conversion.value == null) {
                 currencies = viewModel.currencies.value
-                if (currencies?.currencies?.containsKey(to) == true) {
-                    currencyConverted.value = currencies?.currencies?.get(to) ?: ""
-                }
-                if (currencies?.currencies?.containsKey(from) == true) {
-                    currencyToBeConvert.value = currencies?.currencies?.get(from) ?: ""
-                }
-            } else {
-                amountConverted.value =
-                    viewModel.conversion.value?.rates?.conversion?.values.toString()
-                amountConverted.value = amountConverted.value.replace("[", "").replace("]", "")
-                amountConverted.value =
-                    DecimalFormat("#.##").format(amountConverted.value.toDouble())
+                defineCurrencies()
+            } else if (viewModel.conversion.value != null) {
+                convertAmount()
             }
-            ConverterScreen(from, to)
+            ConverterScreen()
         }
+    }
+}
+
+private fun convertAmount() {
+    amountConverted.value = viewModel.conversion.value?.rates?.conversion?.values.toString()
+    amountConverted.value = amountConverted.value.replace("[", "").replace("]", "")
+    amountConverted.value =
+        DecimalFormat("#.##").format(amountConverted.value.toDouble())
+}
+
+private fun defineCurrencies() {
+    if (currencies?.currencies?.containsKey(toCurrency.value) == true) {
+        currencyConverted.value = currencies?.currencies?.get(toCurrency.value) ?: ""
+    }
+    if (currencies?.currencies?.containsKey(fromCurrency.value) == true) {
+        currencyToBeConvert.value = currencies?.currencies?.get(fromCurrency.value) ?: ""
     }
 }
 
@@ -271,8 +290,11 @@ private fun CurrenciesScreenConverterTopBar(navController: NavHostController) {
 }
 
 @Composable
-private fun ConverterScreen(from: String, to: String) {
+private fun ConverterScreen() {
     val context = LocalContext.current
+    if (openDialogFrom.value || openDialogTo.value) {
+        ChangeCurrency()
+    }
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.SpaceAround,
@@ -333,7 +355,7 @@ private fun ConverterScreen(from: String, to: String) {
                 )
                 Spacer(modifier = Modifier.padding(10.dp))
                 Text(
-                    text = from,
+                    text = fromCurrency.value,
                     color = White,
                     fontSize =
                     if (mediaQueryWidth() <= small) {
@@ -362,38 +384,89 @@ private fun ConverterScreen(from: String, to: String) {
                 ),
             contentAlignment = Alignment.Center
         ) {
-            val noInternet = stringResource(id = R.string.no_internet)
-            Image(
-                painter = painterResource(id = R.drawable.arrow_down),
-                contentDescription = "Arrow forward",
-                colorFilter = ColorFilter.tint(White),
-                modifier = Modifier
-                    .size(
-                        if (mediaQueryWidth() <= small) {
-                            75.dp
-                        } else if (mediaQueryWidth() <= normal) {
-                            175.dp
-                        } else {
-                            275.dp
-                        }
-                    )
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        if (status == ConnectivityObserver.Status.Unavailable) {
-                            Toast.makeText(context, noInternet, Toast.LENGTH_SHORT).show()
-                            return@clickable
-                        }
-                        viewModel.conversion.value = null
-                        viewModel.makeConversion(
-                            status,
-                            from,
-                            to,
-                            amountToConvert.value
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_top_currency),
+                    contentDescription = "Arrow top currency",
+                    colorFilter = ColorFilter.tint(White),
+                    modifier = Modifier
+                        .size(
+                            if (mediaQueryWidth() <= small) {
+                                50.dp
+                            } else if (mediaQueryWidth() <= normal) {
+                                150.dp
+                            } else {
+                                250.dp
+                            }
                         )
-                    }
-            )
+                        .padding(start = 20.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            openDialogFrom.value = true
+                        }
+                )
+                val noInternet = stringResource(id = R.string.no_internet)
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_down),
+                    contentDescription = "Arrow bottom",
+                    colorFilter = ColorFilter.tint(White),
+                    modifier = Modifier
+                        .size(
+                            if (mediaQueryWidth() <= small) {
+                                75.dp
+                            } else if (mediaQueryWidth() <= normal) {
+                                175.dp
+                            } else {
+                                275.dp
+                            }
+                        )
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            if (status == ConnectivityObserver.Status.Unavailable) {
+                                Toast
+                                    .makeText(context, noInternet, Toast.LENGTH_SHORT)
+                                    .show()
+                                return@clickable
+                            }
+                            viewModel.makeConversion(
+                                status,
+                                fromCurrency.value,
+                                toCurrency.value,
+                                amountToConvert.value
+                            )
+                        }
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_bottom_currency),
+                    contentDescription = "Arrow bottom currency",
+                    colorFilter = ColorFilter.tint(White),
+                    modifier = Modifier
+                        .size(
+                            if (mediaQueryWidth() <= small) {
+                                50.dp
+                            } else if (mediaQueryWidth() <= normal) {
+                                150.dp
+                            } else {
+                                250.dp
+                            }
+                        )
+                        .padding(end = 20.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            openDialogTo.value = true
+                        }
+                )
+            }
         }
         Box(
             modifier = Modifier
@@ -407,7 +480,7 @@ private fun ConverterScreen(from: String, to: String) {
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = to,
+                    text = toCurrency.value,
                     color = White,
                     fontSize =
                     if (mediaQueryWidth() <= small) {
@@ -475,5 +548,73 @@ private fun clearValues() {
     amountConverted.value = ""
     currencyToBeConvert.value = ""
     currencyConverted.value = ""
+    fromCurrency.value = ""
+    toCurrency.value = ""
     viewModel.conversion.value = null
+}
+
+@Composable
+private fun ChangeCurrency() {
+    val context = LocalContext.current
+    var filterSize: List<String>?
+    var selectedOption by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = {
+            openDialogFrom.value = false
+            openDialogTo.value = false
+        },
+        title = { Text(stringResource(id = R.string.select_option)) },
+        text = {
+            filterSize = currencies?.currencies?.keys?.filter {
+                !it.contains(fromCurrency.value) && !it.contains(toCurrency.value)
+            }
+            LazyColumn {
+                items(filterSize?.size ?: 0) { index ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedOption == filterSize?.elementAt(index),
+                            onClick = {
+                                selectedOption = filterSize?.elementAt(index) ?: ""
+                            }
+                        )
+                        Text(filterSize?.elementAt(index) ?: "")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            val selectOption = stringResource(id = R.string.select_option)
+            val ok = stringResource(id = R.string.ok)
+            Button(onClick = {
+                if (selectedOption.isEmpty()) {
+                    Toast.makeText(context, selectOption, Toast.LENGTH_SHORT).show()
+                    return@Button
+                }
+                if (openDialogFrom.value) {
+                    fromCurrency.value = selectedOption
+                } else if (openDialogTo.value) {
+                    toCurrency.value = selectedOption
+                }
+                defineCurrencies()
+                viewModel.conversion.value = null
+                amountConverted.value = ""
+                openDialogFrom.value = false
+                openDialogTo.value = false
+            }) {
+                Text(ok)
+            }
+        },
+        dismissButton = {
+            val cancel = stringResource(id = R.string.cancel)
+            Button(onClick = {
+                openDialogFrom.value = false
+                openDialogTo.value = false
+            }) {
+                Text(cancel)
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .height(mediaQueryHeight() / 1.5f)
+    )
 }
