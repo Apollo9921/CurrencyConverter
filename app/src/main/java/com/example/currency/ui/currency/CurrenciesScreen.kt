@@ -424,7 +424,9 @@ private fun CurrencyItem(index: Int, navController: NavHostController) {
                         to = allCurrencyRates?.currencies?.keys?.elementAt(index) ?: "",
                         amount = rateValue.value.value?.amount.toString()
                     )
-                )
+                ) {
+                    launchSingleTop = true
+                }
             },
         contentAlignment = Alignment.Center
     ) {
