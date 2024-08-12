@@ -1,5 +1,7 @@
 package com.example.currency.ui.conversion
 
+import android.icu.text.DecimalFormat
+import android.icu.util.Calendar
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,8 +10,12 @@ import com.example.currency.koin.CurrencyRepository
 import com.example.currency.model.conversion.Conversion
 import com.example.currency.model.conversion.Rates
 import com.example.currency.model.currencyList.Currency
+import com.example.currency.model.history.History
+import com.example.currency.model.history.HistoryRepository
 import com.example.currency.network.ConnectivityObserver
 import io.ktor.client.call.body
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -19,8 +25,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 class CurrencyConverterViewModel(
-    private val currencyRepository: CurrencyRepository
+    private val currencyRepository: CurrencyRepository,
+    private val historyRepository: HistoryRepository
 ) : ViewModel() {
+
+    private var conversionJob: Job? = null
 
     private val _getCurrency =
         MutableStateFlow<CurrencyConverterState>(CurrencyConverterState.Loading)
@@ -169,12 +178,13 @@ class CurrencyConverterViewModel(
                 _getCurrencyConverter.value =
                     CurrencyConverterEvent.Error(e.message ?: "Unknown error")
             }
-            getConversionResponse()
         }
+        getConversionResponse()
     }
 
     private fun getConversionResponse() {
-        viewModelScope.launch {
+        conversionJob?.cancel()
+        conversionJob = viewModelScope.launch {
             getCurrencyConverter.collect {
                 when (it) {
                     is CurrencyConverterEvent.Error -> {
@@ -192,11 +202,54 @@ class CurrencyConverterViewModel(
 
                     is CurrencyConverterEvent.Success -> {
                         conversion.value = it.currencies
+                        addHistoryToRoom()
                         isLoading.value = false
                         isError.value = false
                         isSuccess.value = true
                     }
                 }
+            }
+        }
+    }
+
+    private suspend fun addHistoryToRoom() {
+        val fromAmount = DecimalFormat("#.##").format(conversion.value?.amount)
+        val toAmount = DecimalFormat("#.##").format(conversion.value?.rates?.conversion?.values?.first())
+        val calendar = Calendar.getInstance()
+        val year = calendar.get(Calendar.YEAR)
+        val month = calendar.get(Calendar.MONTH) + 1
+        val day = calendar.get(Calendar.DAY_OF_MONTH)
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val minute = calendar.get(Calendar.MINUTE)
+        val second = calendar.get(Calendar.SECOND)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val formattedDate = String.format(
+                "%02d/%02d/%04d - %02d:%02d:%02d",
+                day,
+                month,
+                year,
+                hour,
+                minute,
+                second
+            )
+            val history = History(
+                id = 0,
+                date = formattedDate,
+                from = conversion.value?.base ?: "",
+                fromAmount = fromAmount,
+                to = conversion.value?.rates?.conversion?.keys?.first() ?: "",
+                toAmount = toAmount
+            )
+
+            val date = historyRepository.readAllData()
+            if (date.isNotEmpty()) {
+                val filter = date.filter { it.date == history.date }
+                if (filter.isEmpty()) {
+                    historyRepository.addHistory(history)
+                }
+            } else {
+                historyRepository.addHistory(history)
             }
         }
     }

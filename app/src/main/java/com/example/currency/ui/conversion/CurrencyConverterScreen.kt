@@ -130,11 +130,12 @@ private fun ShowModalBottomSheet() {
         modifier = Modifier.fillMaxHeight(0.5f)
     ) {
         Column(
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.padding(10.dp))
             Text(
-                text = "Conversion History",
+                text = stringResource(id = R.string.conversion_history),
                 color = Black,
                 fontSize =
                 if (mediaQueryWidth() <= small) {

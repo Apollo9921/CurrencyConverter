@@ -6,4 +6,5 @@
     <string name="cancel">Cancel</string>
     <string name="change_currency">Change Currency</string>
     <string name="search_by_currency">Search by currency</string>
+    <string name="conversion_history">Conversion History</string>
 </resources>
